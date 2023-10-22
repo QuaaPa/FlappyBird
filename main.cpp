@@ -14,35 +14,64 @@ const int HEIGHT = 900;
 sf::RenderWindow window(sf::VideoMode(WEIGHT, HEIGHT), "Flappy Bird");
 
 bool isPause = false;
-
-void Pause()
+void eventUpdate(sf::RenderWindow* window)
 {
-    isPause = true;
+    sf::Event event;
+    while (window->pollEvent(event))
+    {
+        if (event.type == sf::Event::Closed)
+            window->close();
+    }
+}
+void DisplayPause(sf::Text* scoreText, sf::Text* bestScoreText)
+{
     sf::Texture pauseTexture;
     pauseTexture.loadFromFile("resources/Pause.png");
     sf::Sprite pause(pauseTexture);
     pause.setPosition(WEIGHT / 2 - 70, HEIGHT / 2 - 176);
 
     // Draw text Score | Best Score
+    scoreText->setPosition(WEIGHT / 2 - 70 + 53, HEIGHT / 2 - 176 + 47);
+    scoreText->setFillColor(sf::Color::White);
+
+    bestScoreText->setPosition(WEIGHT / 2 - 70 + 53, HEIGHT / 2 - 176 + 110);
+    bestScoreText->setFillColor(sf::Color::White);
 
     window.draw(pause);
-}
-
-bool CheckGameOver(sf::Sprite bird)
-{
-    if (bird.getPosition().y >= 730)
+    window.draw(*scoreText);
+    window.draw(*bestScoreText);
+    window.display();
+    while(isPause)
     {
-        Pause();
-        return true;
+        eventUpdate(&window);
+        if(sf::Keyboard::isKeyPressed(sf::Keyboard::Space))
+        {
+            isPause = false;
+        }
+        else
+        {
+            isPause = true;
+        }
     }
-    else
-        return false;
 }
 
 int main()
 {
     srand(time(0));
     window.setFramerateLimit(60);
+
+    sf::Font font;
+    if(!font.loadFromFile("Arcade.ttf"))
+    {
+        return -1;
+    }
+    sf::Text scoreText;
+    scoreText.setFont(font);
+    int score = 0;
+
+    sf::Text bestScoreText;
+    bestScoreText.setFont(font);
+    int bestScore = 0;
 
     sf::Texture backgroundTexture;
     if (!backgroundTexture.loadFromFile("resources/background.png"))
@@ -63,8 +92,6 @@ int main()
         return -1;
     }
     sf::Sprite tower(towerTexture);
-    // tower.setPosition(0, 416);
-    tower.setScale(0.5, 0.5);
 
     std::vector<Tower> towers;
 
@@ -89,15 +116,12 @@ int main()
 
     while (window.isOpen())
     {
-        sf::Event event;
-        while (window.pollEvent(event))
-        {
-            if (event.type == sf::Event::Closed)
-                window.close();
-        }
+        //############ UPDATE EVENT ################
+        eventUpdate(&window);
+        //########## GET DELTA TIME  ###############
         dt = clockDt.getElapsedTime().asSeconds();
         clockDt.restart();
-
+        //############# ANIMATION ##################
         if (clock.getElapsedTime().asSeconds() > 0.1f)
         {
             if (rectSourceSprite.left >= 128)
@@ -108,7 +132,6 @@ int main()
             bird.setTextureRect(rectSourceSprite);
             clock.restart();
         }
-
         //############# DEFAULT MOVE ##################
         if (!isJump)
             if (vy_bird != 360)
@@ -129,7 +152,7 @@ int main()
             isJump = true;
             clockFall.restart();
         }
-
+        //################ FALL DOWN #####################
         if (clockFall.getElapsedTime().asSeconds() > 0.3f)
         {
             if (rotate_bird < 30)
@@ -137,48 +160,71 @@ int main()
             bird.setRotation(rotate_bird);
             isJump = false;
         }
-        window.setTitle(std::to_string(clockTower.getElapsedTime().asSeconds()));
-        if (clockTower.getElapsedTime().asSeconds() >= 4.0f)
+        //############## GENERATE TOWER ###################
+        if (clockTower.getElapsedTime().asSeconds() >= 10.0f)
         {
-            int random_y = rand() % 201 + 500;
-            towers.push_back(Tower(&tower, random_y));
+            int random_y = rand() % 400;
+            towers.push_back(Tower(tower, random_y));
             clockTower.restart();
         }
-        window.clear();
-        if(!towers.empty())
+        //####### CHECK FOR CROSSING WITH FLOORR ###########
+        if (bird.getPosition().y >= 730)
         {
-            for (auto it = towers.begin(); it != towers.end();)
+            isPause = true;
+        }
+        else
+        {
+            isPause = false;
+        }
+        //################ CLEAR FRAME #####################
+        window.clear();
+        //################ DRAW FRAME ######################
+        window.draw(background);
+        if(towers.size() >= 1)
+        {
+            for (auto it = towers.begin(); it != towers.end(); it++)
             {
                 it->update(dt);
 
-                if (it->getPosition() < -100.0f)
+                if(it->isIntersect(&bird))
+                {
+                    isPause = true;
+                }
+                if(it->isCrossing == false && it->getPositionX() < bird.getPosition().x)
+                {
+                    score += 1;
+                    it->isCrossing = true;
+                }
+
+                if (it->getPositionX() < -100.0f)
                 {
                     it = towers.erase(it);
                     clockTower.restart();
                 }
                 it->render(&window);
+
             }
         }
-        window.draw(background);
         window.draw(bird);
-        if (CheckGameOver(bird))
+        //############## DISPLAY FRAME #####################
+        if(isPause)
         {
-            window.display();
-            while (isPause)
+            if(score >= bestScore)
             {
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space))
-                {
-                    isPause = false;
-                    bird.setPosition(50, 350);
-                }
-                else
-                {
-                    isPause = true;
-                }
+                bestScore = score;
             }
+            scoreText.setString(std::to_string(score));
+            bestScoreText.setString(std::to_string(bestScore));
+            DisplayPause(&scoreText, &bestScoreText);
+            towers.clear();
+            score = 0;
+            bird.setPosition(50, 350);
+            clockTower.restart();
         }
         else
+        {
             window.display();
+        }
     }
 
     return 0;

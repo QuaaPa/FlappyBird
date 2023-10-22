@@ -6,17 +6,25 @@
 class Tower
 {
 private:
-    sf::Sprite* firstTower;
-    sf::Sprite* secondTower;
-    sf::Vector2f firstPosition;
-    sf::Vector2f secondPosition;
+    sf::Sprite TopTower;
+    sf::Sprite BottomTower;
+    sf::Vector2f BottomTowerPosition;
 
-    float towerSpeed = 25;
+    sf::FloatRect TopTowerBounds;
+    sf::FloatRect BottomTowerBounds;
+
+    int towerSpacing = 350;
+
+    float towerSpeed = 40.0f;
 
 public:
-    Tower(sf::Sprite* sprite, int position_y);
+    sf::Vector2f TopTowerPosition;
+    bool isCrossing = false;
+    Tower(sf::Sprite sprite, int position_y);
 
-    float getPosition();
+    float getPositionX();
+    bool isIntersect(sf::Sprite* sprite);
+    bool isGetScore(sf::Sprite* sprite);
     void update(float dt);
     void render(sf::RenderWindow* window);
 };
